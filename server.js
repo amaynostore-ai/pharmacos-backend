@@ -1,4 +1,3 @@
-// Single-file version for easy deployment
 require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
@@ -37,11 +36,20 @@ app.post('/api/auth/login', loginLimit, async (req, res) => {
   if (!username || !password || !role) return res.status(400).json({ error: 'Champs manquants' });
   try {
     if (role === 'admin') {
+      if (username !== 'admin') return res.status(401).json({ error: 'Identifiants incorrects' });
+      // Check against env variable first (simple and reliable)
+      const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
+      if (password === adminPass) {
+        const token = jwt.sign({ id:'admin', name:'Admin', role:'admin' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'8h' });
+        return res.json({ token, user: { id:'admin', name:'Admin', role:'admin' } });
+      }
+      // Also check Supabase hash if env password doesn't match
       const { data: s } = await supabase.from('settings').select('value').eq('key','admin_pass_hash').single();
-      if (!s) return res.status(401).json({ error: 'Admin non configuré' });
-      if (!await bcrypt.compare(password, s.value) || username !== 'admin') return res.status(401).json({ error: 'Identifiants incorrects' });
-      const token = jwt.sign({ id:'admin', name:'Admin', role:'admin' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'8h' });
-      return res.json({ token, user: { id:'admin', name:'Admin', role:'admin' } });
+      if (s && await bcrypt.compare(password, s.value)) {
+        const token = jwt.sign({ id:'admin', name:'Admin', role:'admin' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'8h' });
+        return res.json({ token, user: { id:'admin', name:'Admin', role:'admin' } });
+      }
+      return res.status(401).json({ error: 'Identifiants incorrects' });
     } else {
       const { data: agent, error } = await supabase.from('agents').select('id,name,phone,pass_hash,active').ilike('name', username).single();
       if (error || !agent) return res.status(401).json({ error: 'Agent introuvable' });
@@ -58,8 +66,11 @@ app.post('/api/auth/register-agent', regLimit, async (req, res) => {
   if (!name||!phone||!password||!activation_code) return res.status(400).json({ error: 'Tous les champs sont obligatoires' });
   if (password.length < 4) return res.status(400).json({ error: 'Mot de passe trop court' });
   try {
-    const { data: s } = await supabase.from('settings').select('value').eq('key','activation_code').single();
-    if (!s || activation_code !== s.value) return res.status(403).json({ error: "Code d activation incorrect" });
+    const activationCode = process.env.ACTIVATION_CODE || 'PHARMA2025';
+    if (activation_code !== activationCode) {
+      const { data: s } = await supabase.from('settings').select('value').eq('key','activation_code').single();
+      if (!s || activation_code !== s.value) return res.status(403).json({ error: "Code d activation incorrect" });
+    }
     const { data: agent, error } = await supabase.from('agents').select('id,name').ilike('name', name).single();
     if (error || !agent) return res.status(404).json({ error: 'Agent non trouvé' });
     const hash = await bcrypt.hash(password, 12);
@@ -70,7 +81,6 @@ app.post('/api/auth/register-agent', regLimit, async (req, res) => {
 
 app.get('/api/auth/me', auth, (req, res) => res.json({ user: req.user }));
 
-// ORDERS
 app.get('/api/orders', auth, async (req, res) => {
   try {
     let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
@@ -131,7 +141,6 @@ app.get('/api/orders/stats/summary', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// AGENTS
 app.get('/api/agents', auth, async (req, res) => {
   try {
     if (req.user.role === 'admin') {
@@ -175,7 +184,6 @@ app.delete('/api/agents/:id', auth, adminOnly, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// CALL LOGS
 app.get('/api/calllogs', auth, async (req, res) => {
   try {
     let query = supabase.from('call_logs').select('*').order('created_at', { ascending: false }).limit(100);
@@ -204,7 +212,6 @@ app.post('/api/calllogs', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// SETTINGS
 app.get('/api/settings', auth, adminOnly, async (req, res) => {
   try {
     const { data, error } = await supabase.from('settings').select('key,value').not('key','eq','admin_pass_hash');
