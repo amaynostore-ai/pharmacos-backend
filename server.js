@@ -51,12 +51,13 @@ app.post('/api/auth/login', loginLimit, async (req, res) => {
       }
       return res.status(401).json({ error: 'Identifiants incorrects' });
     } else {
-      const { data: agent, error } = await supabase.from('agents').select('id,name,phone,pass_hash,active').ilike('name', username).single();
+      const { data: agent, error } = await supabase.from('agents').select('id,name,phone,pass_hash,active,role').ilike('name', username).single();
       if (error || !agent) return res.status(401).json({ error: 'Agent introuvable' });
       if (!agent.active) return res.status(403).json({ error: 'Compte désactivé' });
       if (!await bcrypt.compare(password, agent.pass_hash)) return res.status(401).json({ error: 'Mot de passe incorrect' });
-      const token = jwt.sign({ id:agent.id, name:agent.name, role:'agent' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'8h' });
-      return res.json({ token, user: { id:agent.id, name:agent.name, role:'agent', phone:agent.phone } });
+      const agentRole = agent.role || 'agent';
+      const token = jwt.sign({ id:agent.id, name:agent.name, role:agentRole }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'8h' });
+      return res.json({ token, user: { id:agent.id, name:agent.name, role:agentRole, phone:agent.phone } });
     }
   } catch(e) { return res.status(500).json({ error: 'Erreur serveur' }); }
 });
