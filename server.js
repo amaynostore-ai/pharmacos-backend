@@ -41,7 +41,7 @@ app.post('/api/auth/login', loginLimit, async (req, res) => {
         if (mgr && mgr.role === 'manager') {
           if (!mgr.active) return res.status(403).json({ error: 'Compte désactivé' });
           if (!await bcrypt.compare(password, mgr.pass_hash)) return res.status(401).json({ error: 'Identifiants incorrects' });
-          const token = jwt.sign({ id: mgr.id, name: mgr.name, role: 'manager' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'8h' });
+          const token = jwt.sign({ id: mgr.id, name: mgr.name, role: 'manager' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'7d' });
           return res.json({ token, user: { id: mgr.id, name: mgr.name, role: 'manager' } });
         }
         return res.status(401).json({ error: 'Identifiants incorrects' });
@@ -49,7 +49,7 @@ app.post('/api/auth/login', loginLimit, async (req, res) => {
       // Admin login - check ADMIN_PASSWORD env first
       const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
       if (password === adminPass) {
-        const token = jwt.sign({ id:'admin', name:'Admin', role:'admin' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'8h' });
+        const token = jwt.sign({ id:'admin', name:'Admin', role:'admin' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'7d' });
         return res.json({ token, user: { id:'admin', name:'Admin', role:'admin' } });
       }
       return res.status(401).json({ error: 'Identifiants incorrects' });
@@ -59,7 +59,7 @@ app.post('/api/auth/login', loginLimit, async (req, res) => {
       if (!agent.active) return res.status(403).json({ error: 'Compte désactivé' });
       if (!await bcrypt.compare(password, agent.pass_hash)) return res.status(401).json({ error: 'Mot de passe incorrect' });
       const agentRole = agent.role || 'agent';
-      const token = jwt.sign({ id:agent.id, name:agent.name, role:agentRole }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'8h' });
+      const token = jwt.sign({ id:agent.id, name:agent.name, role:agentRole }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN||'7d' });
       return res.json({ token, user: { id:agent.id, name:agent.name, role:agentRole, phone:agent.phone } });
     }
   } catch(e) { return res.status(500).json({ error: 'Erreur serveur' }); }
