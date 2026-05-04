@@ -127,7 +127,7 @@ app.delete('/api/orders/:id', auth, async (req, res) => {
 app.get('/api/agents', auth, async (req, res) => {
   try {
     if (req.user.role === 'admin' || req.user.role === 'manager') {
-      const { data, error } = await supabase.from('agents').select('id,name,phone,active,target,role,created_at').order('name');
+      const { data, error } = await supabase.from('agents').select('id,name,phone,active,target,role,created_at').eq('active',true).order('name');
       if (error) throw error;
       return res.json({ agents: data });
     } else {
@@ -208,7 +208,7 @@ app.put('/api/settings/:key', auth, adminOnly, async (req, res) => {
 // PRODUCTS
 app.get('/api/products', auth, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('products').select('*').order('name');
+    const { data, error } = await supabase.from('products').select('*').eq('active',true).order('name');
     if (error) throw error;
     res.json({ products: data });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -289,7 +289,7 @@ app.delete('/api/blacklist/:id', auth, async (req, res) => {
 // PRODUCTS
 app.get('/api/products', auth, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('products').select('*').order('name');
+    const { data, error } = await supabase.from('products').select('*').eq('active',true).order('name');
     if (error) throw error;
     res.json({ products: data });
   } catch(e) { res.status(500).json({ error: e.message }); }
