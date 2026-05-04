@@ -208,7 +208,7 @@ app.put('/api/settings/:key', auth, adminOnly, async (req, res) => {
 // PRODUCTS
 app.get('/api/products', auth, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('products').select('*').eq('active',true).order('name');
+    const { data, error } = await supabase.from(products').select('*').order('name');
     if (error) throw error;
     res.json({ products: data });
   } catch(e) { res.status(500).json({ error: e.message }); }
