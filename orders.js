@@ -5,11 +5,13 @@ const { authMiddleware, adminOnly } = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
-// ─── GET /calllogs ────────────────────────────────────────────
+// ─── GET /orders ──────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    let query = supabase.from('call_logs')
-      .select('*').order('created_at', { ascending: false }).limit(100);
+    let query = supabase.from('orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     if (req.user.role === 'agent') {
       query = query.eq('agent_name', req.user.name);
@@ -17,43 +19,76 @@ router.get('/', async (req, res) => {
 
     const { data, error } = await query;
     if (error) throw error;
-    res.json({ logs: data });
+    res.json({ orders: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ─── POST /calllogs ───────────────────────────────────────────
+// ─── POST /orders ─────────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
-    const log = {
+    const order = {
       ...req.body,
-      agent_name: req.user.name,
+      agent_name: req.body.agent_name || req.user.name,
+      ship_status: req.body.ship_status || 'pending',
+      ship_company: req.body.ship_company || 'Glivo',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase.from('call_logs').insert(log).select().single();
+    // حذف الحقول غير الموجودة في Supabase
+    delete order.agent;
+    delete order.shipStatus;
+    delete order.shipCompany;
+    delete order.shipReason;
+
+    const { data, error } = await supabase.from('orders').insert(order).select().single();
     if (error) throw error;
+    res.status(201).json({ order: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    // Mettre à jour la commande liée
-    if (log.order_id) {
-      const updates = {
-        call_count: log.call_num,
-        call_result: log.result,
-        updated_at: new Date().toISOString(),
-      };
-      if (log.result === 'delivered')   updates.ship_status = 'delivered';
-      if (log.result === 'cancelled')   updates.ship_status = 'cancelled';
-      if (log.result === 'refused')     updates.ship_status = 'refused';
-      if (log.result === 'voicemail')   updates.ship_status = 'voicemail';
-      if (['no1','no2','no3'].includes(log.result)) updates.ship_status = log.result;
-      if (log.reason) updates.ship_reason = log.reason;
-      if (log.postpone_date) updates.followdate = log.postpone_date;
+// ─── PUT /orders/:id ──────────────────────────────────────────
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = {
+      ...req.body,
+      updated_at: new Date().toISOString(),
+    };
 
-      await supabase.from('orders').update(updates).eq('id', log.order_id);
-    }
+    // حذف الحقول غير الموجودة في Supabase
+    delete updates.agent;
+    delete updates.shipStatus;
+    delete updates.shipCompany;
+    delete updates.shipReason;
+    delete updates.id;
+    delete updates.created_at;
 
-    res.status(201).json({ log: data });
+    const { data, error } = await supabase
+      .from('orders')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ order: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── DELETE /orders/:id ───────────────────────────────────────
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (error) throw error;
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
