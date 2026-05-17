@@ -57,7 +57,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (role === 'admin') {
       if (username.toLowerCase() !== 'admin') {
         const { data: mgr } = await supabase.from('agents').select('id,name,pass_hash,active,role').ilike('name', username).single();
-        if (mgr && mgr.role === 'manager') {
+        if (mgr && (mgr.role === 'manager' || mgr.role === 'director')) {
           if (!mgr.active) return res.status(403).json({ error: 'Compte désactivé' });
           const match = await bcrypt.compare(password, mgr.pass_hash);
           if (!match) return res.status(401).json({ error: 'Identifiants incorrects' });
